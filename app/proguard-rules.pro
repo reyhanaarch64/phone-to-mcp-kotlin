@@ -1,0 +1,4 @@
+-keepattributes *Annotation*
+-keep class org.json.** { *; }
+-keep class rh.mcp.phone.TerminalResultReceiver { *; }
+-keep class rh.mcp.phone.PhoneNotificationListener { *; }
