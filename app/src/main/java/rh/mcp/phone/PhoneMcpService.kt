@@ -47,6 +47,7 @@ class PhoneMcpService : Service() {
             ACTION_STOP_TUNNEL -> {
                 ToolSettings.setTunnelEnabled(this, false)
                 stopTunnelInternal()
+                if (serverRunning()) updateNotification("MCP server running on port ${McpServer.PORT}")
             }
         }
         if (!serverRunning()) startMcpServer()
@@ -272,12 +273,29 @@ class PhoneMcpService : Service() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val copyUrl = getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getString(KEY_PUBLIC_URL, null)
+            ?.takeIf { it.isNotBlank() }
+            ?: "http://127.0.0.1:${McpServer.PORT}/mcp"
+        val copyUrlIntent = Intent(this, CopyUrlReceiver::class.java)
+            .setAction(CopyUrlReceiver.ACTION_COPY_URL)
+            .putExtra(CopyUrlReceiver.EXTRA_URL, copyUrl)
+        val copyUrlPendingIntent = PendingIntent.getBroadcast(
+            this,
+            9010,
+            copyUrlIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setContentIntent(openApp)
+            .addAction(
+                NotificationCompat.Action.Builder(0, "salin URL MCP", copyUrlPendingIntent).build(),
+            )
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 

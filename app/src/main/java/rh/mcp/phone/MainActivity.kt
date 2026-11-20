@@ -7,8 +7,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,10 +41,12 @@ import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -64,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -122,15 +128,22 @@ private fun MainScreen() {
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Phone To MCP", fontWeight = FontWeight.SemiBold)
-                        Text("local device server", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher),
+                            contentDescription = null,
+                            modifier = Modifier.size(38.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("Phone To MCP", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "android control server",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                },
-                actions = {
-                    Icon(Icons.Rounded.Security, contentDescription = "Authenticated MCP")
-                    Spacer(Modifier.width(16.dp))
                 },
             )
         },
@@ -165,12 +178,15 @@ private fun MainScreen() {
                     tunnelEnabled = enabled
                 },
                 onAuthChanged = { enabled -> ToolSettings.setAuthEnabled(context, enabled); authEnabled = enabled },
-                onTokenCopy = { copyText(context, token) },
+                onTokenCopy = { copyText(context, "token MCP", token) },
                 onTokenRegenerate = { token = ToolSettings.regenerateToken(context) },
                 onBackendChanged = { selected ->
-                    runCatching { ToolSettings.setBackend(context, selected) }
-                        .onFailure { RuntimeLog.event(context, "terminal backend setting rejected", it) }
-                    backend = ToolSettings.backend(context)
+                    runCatching { TerminalManager.setBackend(context, selected) }
+                        .onSuccess { backend = ToolSettings.backend(context) }
+                        .onFailure {
+                            RuntimeLog.event(context, "terminal backend setting rejected", it)
+                            Toast.makeText(context, it.message ?: "backend gagal diubah", Toast.LENGTH_LONG).show()
+                        }
                 },
                 onStoragePermission = { requestStoragePermission(context) },
                 onNotificationPermission = { requestNotificationPermission(context) },
@@ -181,8 +197,8 @@ private fun MainScreen() {
                 onTermuxSettings = {
                     runCatching {
                         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                            .setData(Uri.parse("package:${TerminalManager.TERMUX_PACKAGE}")))
-                    }.onFailure { RuntimeLog.event(context, "cannot open Termux settings", it) }
+                            .setData(Uri.parse("package:${context.packageName}")))
+                    }.onFailure { RuntimeLog.event(context, "cannot open app permission settings", it) }
                 },
             )
             1 -> ToolsPage(Modifier.padding(padding), tools, refresh) { tool, enabled ->
@@ -223,34 +239,84 @@ private fun DashboardPage(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            ElevatedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             if (serverRunning) Icons.Rounded.CheckCircle else Icons.Rounded.PowerSettingsNew,
                             contentDescription = null,
-                            tint = if (serverRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(30.dp),
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(if (serverRunning) "server berjalan" else if (serverEnabled) "server starting" else "server mati",
-                                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("127.0.0.1:9009/mcp", style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "status server",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                            )
+                            Text(
+                                when {
+                                    serverRunning -> "server aktif"
+                                    serverEnabled -> "server sedang dimulai"
+                                    else -> "server berhenti"
+                                },
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
                         }
-                        Switch(checked = serverEnabled, onCheckedChange = onServerChanged)
                     }
-                    Divider()
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Cloud, contentDescription = null)
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("cloudflare tunnel", fontWeight = FontWeight.Medium)
-                            Text(tunnelUrl ?: tunnelError ?: "opsional; URL publik dibuat saat aktif",
-                                style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        }
-                        Switch(checked = tunnelEnabled, onCheckedChange = onTunnelChanged)
+                    UrlRow(
+                        label = "url lokal",
+                        value = "http://127.0.0.1:${McpServer.PORT}/mcp",
+                        onCopy = { copyText(context, "URL lokal", "http://127.0.0.1:${McpServer.PORT}/mcp") },
+                    )
+                    Button(
+                        onClick = { onServerChanged(!serverEnabled) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (serverEnabled) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary,
+                        ),
+                    ) {
+                        Icon(Icons.Rounded.PowerSettingsNew, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (serverEnabled) "stop server" else "start server")
+                    }
+                }
+            }
+        }
+        item {
+            SectionCard("cloudflare tunnel", Icons.Rounded.Cloud) {
+                Text(
+                    when {
+                        !tunnelUrl.isNullOrBlank() -> "tunnel aktif"
+                        tunnelEnabled -> "menunggu URL publik dari cloudflared"
+                        else -> "akses publik opsional melalui Cloudflare"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!tunnelUrl.isNullOrBlank()) {
+                    UrlRow(
+                        label = "url publik",
+                        value = tunnelUrl,
+                        onCopy = { copyText(context, "URL tunnel", tunnelUrl) },
+                    )
+                } else if (!tunnelError.isNullOrBlank()) {
+                    Text(tunnelError, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { onTunnelChanged(!tunnelEnabled) }) {
+                        Icon(Icons.Rounded.Cloud, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (tunnelEnabled) "stop tunnel" else "start tunnel")
                     }
                 }
             }
@@ -276,14 +342,27 @@ private fun DashboardPage(
                 BackendOption("Android shell", "application UID, bukan root", backend == "android") { onBackendChanged("android") }
                 BackendOption(
                     "Termux",
-                    if (TerminalManager.termuxInstalled(context)) "butuh izin RUN_COMMAND" else "belum terpasang",
+                    when {
+                        !TerminalManager.termuxInstalled(context) -> "Termux belum terpasang"
+                        !TerminalManager.termuxPermissionGranted(context) -> "butuh izin RUN_COMMAND; ketuk untuk buka pengaturan"
+                        else -> "command dijalankan melalui Termux"
+                    },
                     backend == "termux",
-                    enabled = TerminalManager.termuxInstalled(context) && TerminalManager.termuxPermissionGranted(context),
-                    onClick = { if (TerminalManager.termuxInstalled(context)) onBackendChanged("termux") else onTermuxSettings() },
+                    enabled = TerminalManager.termuxInstalled(context),
+                    onClick = {
+                        when {
+                            !TerminalManager.termuxInstalled(context) ->
+                                Toast.makeText(context, "Termux belum terpasang", Toast.LENGTH_SHORT).show()
+                            !TerminalManager.termuxPermissionGranted(context) -> onTermuxSettings()
+                            else -> onBackendChanged("termux")
+                        }
+                    },
                 )
                 if (TerminalManager.termuxInstalled(context) && !TerminalManager.termuxPermissionGranted(context)) {
                     OutlinedButton(onClick = onTermuxSettings) {
-                        Icon(Icons.Rounded.OpenInNew, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("termux app settings")
+                        Icon(Icons.Rounded.OpenInNew, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("buka pengaturan izin aplikasi")
                     }
                 }
             }
@@ -311,6 +390,22 @@ private fun DashboardPage(
         item {
             Text("service log: /sdcard/Android/media/rh.mcp.phone/logs", style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun UrlRow(label: String, value: String, onCopy: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        IconButton(onClick = onCopy) {
+            Icon(Icons.Rounded.ContentCopy, contentDescription = "salin $label")
         }
     }
 }
@@ -426,8 +521,8 @@ private fun BackendOption(title: String, subtitle: String, selected: Boolean, en
     androidx.compose.material3.ListItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(subtitle) },
-        leadingContent = { androidx.compose.material3.RadioButton(selected, onClick = onClick, enabled = enabled) },
-        modifier = Modifier.fillMaxWidth(),
+        leadingContent = { androidx.compose.material3.RadioButton(selected, onClick = null, enabled = enabled) },
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
     )
 }
 
@@ -458,9 +553,10 @@ private fun requestNotificationPermission(context: android.content.Context) {
     }
 }
 
-private fun copyText(context: android.content.Context, text: String) {
+private fun copyText(context: android.content.Context, label: String, text: String) {
     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("MCP token", text))
+    clipboard.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+    Toast.makeText(context, "$label disalin", Toast.LENGTH_SHORT).show()
 }
 
 private object EnvironmentPermission {
