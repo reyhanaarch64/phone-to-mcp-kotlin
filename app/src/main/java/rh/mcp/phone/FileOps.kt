@@ -440,50 +440,50 @@ object FileOps {
             FileInputStream(file).use { input -> input.copyTo(zip) }
             zip.closeEntry()
         }
+    }
 
-        private fun countOccurrences(text: String, find: String): Int {
-            var count = 0
-            var index = 0
-            while (true) {
-                index = text.indexOf(find, index)
-                if (index < 0) return count
-                count++
-                index += find.length
-            }
+    private fun countOccurrences(text: String, find: String): Int {
+        var count = 0
+        var index = 0
+        while (true) {
+            index = text.indexOf(find, index)
+            if (index < 0) return count
+            count++
+            index += find.length
         }
+    }
 
-        private fun findOccurrence(text: String, find: String, occurrence: Int): Int {
-            var index = 0
-            repeat(occurrence) {
-                index = text.indexOf(find, index) + find.length
-            }
-            return text.indexOf(find, index)
+    private fun findOccurrence(text: String, find: String, occurrence: Int): Int {
+        var index = 0
+        repeat(occurrence) {
+            index = text.indexOf(find, index) + find.length
         }
+        return text.indexOf(find, index)
+    }
 
-        private fun unifiedDiff(before: String, after: String, path: String): String {
-            val oldLines = before.split('\n')
-            val newLines = after.split('\n')
-            var prefix = 0
-            while (prefix < oldLines.size && prefix < newLines.size && oldLines[prefix] == newLines[prefix]) prefix++
-            var suffix = 0
-            while (suffix < oldLines.size - prefix && suffix < newLines.size - prefix &&
-                oldLines[oldLines.lastIndex - suffix] == newLines[newLines.lastIndex - suffix]
-            ) suffix++
-            val contextStart = (prefix - 3).coerceAtLeast(0)
-            val oldEnd = (oldLines.size - suffix + 3).coerceAtMost(oldLines.size)
-            val newEnd = (newLines.size - suffix + 3).coerceAtMost(newLines.size)
-            val oldCount = oldEnd - contextStart
-            val newCount = newEnd - contextStart
-            return buildString {
-                append("--- a/").append(path).append('\n')
-                append("+++ b/").append(path).append('\n')
-                append("@@ -").append(contextStart + 1).append(',').append(oldCount)
-                    .append(" +").append(contextStart + 1).append(',').append(newCount).append(" @@\n")
-                for (i in contextStart until prefix) append(' ').append(oldLines[i]).append('\n')
-                for (i in prefix until oldLines.size - suffix) append('-').append(oldLines[i]).append('\n')
-                for (i in prefix until newLines.size - suffix) append('+').append(newLines[i]).append('\n')
-                for (i in oldLines.size - suffix until oldEnd) append(' ').append(oldLines[i]).append('\n')
-            }
+    private fun unifiedDiff(before: String, after: String, path: String): String {
+        val oldLines = before.split('\n')
+        val newLines = after.split('\n')
+        var prefix = 0
+        while (prefix < oldLines.size && prefix < newLines.size && oldLines[prefix] == newLines[prefix]) prefix++
+        var suffix = 0
+        while (suffix < oldLines.size - prefix && suffix < newLines.size - prefix &&
+            oldLines[oldLines.lastIndex - suffix] == newLines[newLines.lastIndex - suffix]
+        ) suffix++
+        val contextStart = (prefix - 3).coerceAtLeast(0)
+        val oldEnd = (oldLines.size - suffix + 3).coerceAtMost(oldLines.size)
+        val newEnd = (newLines.size - suffix + 3).coerceAtMost(newLines.size)
+        val oldCount = oldEnd - contextStart
+        val newCount = newEnd - contextStart
+        return buildString {
+            append("--- a/").append(path).append('\n')
+            append("+++ b/").append(path).append('\n')
+            append("@@ -").append(contextStart + 1).append(',').append(oldCount)
+                .append(" +").append(contextStart + 1).append(',').append(newCount).append(" @@\n")
+            for (i in contextStart until prefix) append(' ').append(oldLines[i]).append('\n')
+            for (i in prefix until oldLines.size - suffix) append('-').append(oldLines[i]).append('\n')
+            for (i in prefix until newLines.size - suffix) append('+').append(newLines[i]).append('\n')
+            for (i in oldLines.size - suffix until oldEnd) append(' ').append(oldLines[i]).append('\n')
         }
     }
 }

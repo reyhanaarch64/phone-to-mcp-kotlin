@@ -1,7 +1,7 @@
 package rh.mcp.phone
 
 import android.content.Context
-import android.speech.TextToSpeech
+import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 import java.util.UUID
