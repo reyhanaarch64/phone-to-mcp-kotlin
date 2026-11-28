@@ -190,13 +190,27 @@ object TerminalManager {
             }
         }
         if (bundle == null) return JSONObject().put("completed", false).put("error", "Termux result bundle missing")
-        fun get(part: String): Any? = bundle.keySet().firstOrNull { it.contains(part, true) }?.let(bundle::get)
-        val err = (get("_ERR") ?: get("ERR"))?.toString()?.toIntOrNull() ?: -1
-        return JSONObject().put("stdout", get("STDOUT")?.toString().orEmpty())
-            .put("stderr", get("STDERR")?.toString().orEmpty())
-            .put("exitCode", (get("EXIT_CODE") ?: get("EXITCODE"))?.toString()?.toIntOrNull() ?: -1)
+        fun findKey(part: String): String? = bundle.keySet().firstOrNull {
+            it.contains(part, true) && !it.contains("ORIGINAL_LENGTH", true)
+        }
+        fun getString(part: String): String = findKey(part)
+            ?.let(bundle::get)
+            ?.let { it as? String }
+            .orEmpty()
+        fun getInt(part: String): Int? {
+            val key = if (part == "_ERR") {
+                bundle.keySet().firstOrNull {
+                    it.equals("ERR", true) || it.endsWith(".ERR", true) || it.endsWith("_ERR", true)
+                }
+            } else findKey(part)
+            return key?.let(bundle::get)?.toString()?.toIntOrNull()
+        }
+        val err = getInt("_ERR") ?: -1
+        return JSONObject().put("stdout", getString("STDOUT"))
+            .put("stderr", getString("STDERR"))
+            .put("exitCode", getInt("EXIT_CODE") ?: getInt("EXITCODE") ?: -1)
             .put("completed", err == -1).put("timedOut", false)
-            .put("error", if (err == -1) JSONObject.NULL else get("ERRMSG")?.toString() ?: "Termux error $err")
+            .put("error", if (err == -1) JSONObject.NULL else getString("ERRMSG").ifBlank { "Termux error $err" })
     }
 
     private class BoundedOutput(private val maximum: Int) : ByteArrayOutputStream() {
