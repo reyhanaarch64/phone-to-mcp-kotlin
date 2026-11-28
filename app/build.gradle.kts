@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "rh.mcp.phone"
+        applicationId = "rh.mcp.server1"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
